@@ -5,6 +5,7 @@ import sqlite3
 import os
 import zipfile
 from io import BytesIO
+import time
 
 # Function to initialize the database
 def initialize_database():
@@ -16,12 +17,12 @@ def initialize_database():
         vehicle_type TEXT,
         category TEXT,
         project_number TEXT,
-        vendor TEXT,
         type TEXT,
         quantity REAL,
         price_per_unit REAL,
         additional_cost REAL,
         product_name TEXT,
+        vendor TEXT,
         description TEXT,
         price REAL,
         file_path TEXT,
@@ -36,9 +37,9 @@ def save_file(file_data, filename, folder='uploads'):
     if not os.path.exists(folder):
         os.makedirs(folder)
     file_path = os.path.join(folder, filename)
-    it=0
+    it = 0
     while True:
-        it+=1
+        it += 1
         if os.path.isfile(file_path):
             file_path = os.path.join(folder, f"R_{it}.".join(filename.split('R.')))
         else:
@@ -60,9 +61,9 @@ def handle_file_upload():
 def display_dynamic_fields(expense_category):
     fields = {}
     if expense_category == 'Fuel':
+        fields['type'] = st.selectbox('Fuel Type', ['Petrol', 'Diesel', 'Electric'])
         fields['quantity'] = st.number_input('Fuel Quantity (liters or kWh)', min_value=0.0, value=0.0, format="%.3f", step=0.1)
         fields['price_per_unit'] = st.number_input('Price per Unit (OMR)', min_value=0.0, value=0.0, format="%.3f", step=0.1)
-        fields['type'] = st.selectbox('Fuel Type', ['Petrol', 'Diesel', 'Electric'])
     elif expense_category == 'Customer Expense':
         fields['project_number'] = st.text_input('Project Number')
         fields['type'] = st.selectbox('Expense Type', ['Product Rent', 'Product Purchase', 'Service'])
@@ -108,7 +109,40 @@ def save_to_database(c, data):
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', data)
     c.connection.commit()
-    st.success("Data saved successfully to the database!")
+    show_popup("Data saved successfully to the database!")
+
+# Function to display success message as a popup in the center of the screen
+def show_popup(message):
+    if 'show_popup' not in st.session_state:
+        st.session_state['show_popup'] = False
+
+    if st.session_state['show_popup']:
+        popup_html = f"""
+        <div id="popup" style="position: fixed; 
+                    top: 50%; left: 50%; 
+                    transform: translate(-50%, -50%); 
+                    background-color: #28a745; 
+                    color: white; 
+                    padding: 20px; 
+                    border-radius: 5px; 
+                    text-align: center; 
+                    box-shadow: inset 0 0 10px 1px rgba(0,0,0,0.75); 
+                    z-index: 9999;">
+            {message}
+        </div>
+        <script>
+        setTimeout(function() {{
+            var popup = document.getElementById('popup');
+            if (popup) {{
+                popup.style.display = 'none';
+            }}
+        }}, 2000); // 2 seconds
+        </script>
+        """
+        st.markdown(popup_html, unsafe_allow_html=True)
+        st.session_state['show_popup'] = False
+        time.sleep(2)
+        st.rerun()
 
 # Function to save data to a CSV file
 def save_to_csv(df: pd.DataFrame):
@@ -285,6 +319,8 @@ def main():
                 
                 # Insert into database
                 save_to_database(c, data)
+                # Set the popup to be displayed
+                st.session_state['show_popup'] = True
             else:
                 st.warning(validation_message)
     
@@ -329,8 +365,10 @@ def main():
                         file_name=db_path,
                         mime="application/octet-stream"
                     )
-        
-
+    
+    # Display the popup if needed
+    show_popup("Data saved successfully to the database!")
+    
     # Close database connection
     conn.close()
 
